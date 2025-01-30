@@ -1,16 +1,3 @@
-"""
-json_producer_mee.py
-
-Stream JSON data to a Kafka topic.
-
-Example JSON message
-{"message": "I love Python!", "author": "Eve"}
-
-Example serialized to Kafka message
-"{\"message\": \"I love Python!\", \"author\": \"Eve\"}"
-
-"""
-
 #####################################
 # Import Modules
 #####################################
@@ -21,9 +8,8 @@ import sys
 import time
 import pathlib  # work with file paths
 import json  # work with JSON data
-
-# Import external packages
 from dotenv import load_dotenv
+from prometheus_client import Counter, start_http_server  # Prometheus metrics
 
 # Import functions from local modules
 from utils.utils_producer import (
@@ -34,16 +20,19 @@ from utils.utils_producer import (
 from utils.utils_logger import logger
 
 #####################################
+# Set up Metrics
+#####################################
+
+# Define Prometheus metrics to track the message count
+message_counter = Counter("message_count", "Number of messages sent to Kafka")
+
+#####################################
 # Load Environment Variables
 #####################################
 
 load_dotenv()
 
-#####################################
 # Getter Functions for .env Variables
-#####################################
-
-
 def get_kafka_topic() -> str:
     """Fetch Kafka topic from environment or use default."""
     topic = os.getenv("BUZZ_TOPIC", "unknown_topic")
@@ -56,7 +45,6 @@ def get_message_interval() -> int:
     interval = int(os.getenv("BUZZ_INTERVAL_SECONDS", 1))
     logger.info(f"Message interval: {interval} seconds")
     return interval
-
 
 #####################################
 # Set up Paths
@@ -78,7 +66,6 @@ logger.info(f"Data file: {DATA_FILE}")
 #####################################
 # Message Generator
 #####################################
-
 
 def generate_messages(file_path: pathlib.Path):
     """
@@ -123,7 +110,6 @@ def generate_messages(file_path: pathlib.Path):
 # Main Function
 #####################################
 
-
 def main():
     """
     Main entry point for this producer.
@@ -132,6 +118,9 @@ def main():
     - Creates a Kafka producer using the `create_kafka_producer` utility.
     - Streams generated JSON messages to the Kafka topic.
     """
+    # Start the Prometheus metrics server on port 8000
+    start_http_server(8000)
+    logger.info("Prometheus metrics server started on port 8000.")
 
     logger.info("START producer.")
     verify_services()
@@ -168,6 +157,11 @@ def main():
             # Send message directly as a dictionary (producer handles serialization)
             producer.send(topic, value=message_dict)
             logger.info(f"Sent message to topic '{topic}': {message_dict}")
+
+            # Increment the message count metric
+            message_counter.inc()
+
+            # Sleep for the configured interval
             time.sleep(interval_secs)
     except KeyboardInterrupt:
         logger.warning("Producer interrupted by user.")
@@ -178,7 +172,6 @@ def main():
         logger.info("Kafka producer closed.")
 
     logger.info("END producer.")
-
 
 #####################################
 # Conditional Execution
