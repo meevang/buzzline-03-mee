@@ -1,5 +1,5 @@
-"""
-json_consumer_case.py
+""""
+json_consumer_mee.py
 
 Consume json messages from a Kafka topic and process them.
 
@@ -68,7 +68,7 @@ author_counts = defaultdict(int)
 
 #####################################
 # Function to process a single message
-# #####################################
+#####################################
 
 
 def process_message(message: str) -> None:
@@ -86,13 +86,26 @@ def process_message(message: str) -> None:
         message_dict: dict = json.loads(message)
 
         # Ensure the processed JSON is logged for debugging
-        logger.info(f"Processed JSON message: {message_dict}")
+        logger.debug(f"Parsed message dict: {message_dict}")
 
         # Ensure it's a dictionary before accessing fields
         if isinstance(message_dict, dict):
-            # Extract the 'author' field from the Python dictionary
+            # Extract the 'message' and 'author' fields from the Python dictionary
             author = message_dict.get("author", "unknown")
+            message_content = message_dict.get("message", "")
+
+            # Log the received author and message
             logger.info(f"Message received from author: {author}")
+            logger.info(f"Message content: {message_content}")
+
+            # Log the message content to debug matching
+            logger.debug(f"Checking message content: '{message_content}' (expected: 'I need a new laptop.')")
+
+            # Normalize the message content check
+            if message_content.strip().lower() == "i need a new laptop.".lower():
+                logger.warning("ALERT: The message 'I need a new laptop.' was received!")
+            else:
+                logger.debug(f"No match for alert. Message content: '{message_content}'")
 
             # Increment the count for the author
             author_counts[author] += 1
@@ -126,7 +139,7 @@ def main() -> None:
     # fetch .env content
     topic = get_kafka_topic()
     group_id = get_kafka_consumer_group_id()
-    logger.info(f"Consumer: Topic '{topic}' and group '{group_id}'...")
+    logger.info(f"Consuming from Kafka topic: {topic}, Consumer group: {group_id}")
 
     # Create the Kafka consumer using the helpful utility function.
     consumer = create_kafka_consumer(topic, group_id)
@@ -136,6 +149,7 @@ def main() -> None:
     try:
         for message in consumer:
             message_str = message.value
+            # Log the received Kafka message to check its value
             logger.debug(f"Received message at offset {message.offset}: {message_str}")
             process_message(message_str)
     except KeyboardInterrupt:
